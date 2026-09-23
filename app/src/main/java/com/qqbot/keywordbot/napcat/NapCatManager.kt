@@ -271,7 +271,7 @@ class NapCatManager @Inject constructor(
 
         // 2. 准备 Ubuntu rootfs（用版本标记确保权限/符号链接正确）
         // 版本号变更时强制重新解压（更新 first-run.sh 等内置脚本）
-        val ROOTFS_VERSION = "13"
+        val ROOTFS_VERSION = "14"
         val markerFile = File(rootfsDir, ".rootfs-ok-v$ROOTFS_VERSION")
         if (!markerFile.exists()) {
             log("rootfs 版本不匹配，重新解压...")
@@ -290,7 +290,7 @@ class NapCatManager @Inject constructor(
         }
 
         // 2.5 创建根目录符号链接（Ubuntu 24.04 的 /bin, /lib, /sbin, /lib64 都是符号链接）
-        // createRootSymlinks()  // 已由 extractZipEntries 自动处理
+        createRootSymlinks()
 
         // 3. 确保 NapCat 目录存在
         if (!napcatDir.exists()) {
@@ -422,31 +422,8 @@ class NapCatManager @Inject constructor(
                 outFile.mkdirs()
             } else {
                 outFile.parentFile?.mkdirs()
-                val entrySize = entry.size
-                val isSymlinkCandidate = entrySize in 1..128
-                if (isSymlinkCandidate) {
-                    val smallBuf = ByteArray(128)
-                    var totalRead = 0
-                    while (totalRead < smallBuf.size) {
-                        val r = zip.read(smallBuf, totalRead, smallBuf.size - totalRead)
-                        if (r <= 0) break
-                        totalRead += r
-                    }
-                    val contentStr = String(smallBuf, 0, totalRead).trim()
-                    val resolved = resolveSymlinkTarget(outFile, contentStr, targetDir)
-                    if (resolved != null) {
-                        try {
-                            android.system.Os.symlink(resolved, outFile.absolutePath)
-                            zip.closeEntry()
-                            entry = zip.nextEntry
-                            continue
-                        } catch (_: Exception) { /* fallback */ }
-                    }
-                    FileOutputStream(outFile).use { it.write(smallBuf, 0, totalRead) }
-                } else {
-                    FileOutputStream(outFile).use { output ->
-                        zip.copyTo(output)
-                    }
+                FileOutputStream(outFile).use { output ->
+                    zip.copyTo(output)
                 }
                 outFile.setExecutable(true, false)
                 outFile.setReadable(true, false)
@@ -455,29 +432,6 @@ class NapCatManager @Inject constructor(
             zip.closeEntry()
             entry = zip.nextEntry
         }
-    }
-
-    /**
-     * 解析符号链接的目标路径。
-     */
-    private fun resolveSymlinkTarget(linkFile: File, rawTarget: String, targetDir: File): String? {
-        if (rawTarget.startsWith("/")) {
-            val abs = File(rawTarget)
-            if (abs.exists()) return rawTarget
-        }
-        val sibling = File(linkFile.parentFile, rawTarget)
-        if (sibling.exists()) return rawTarget
-        val found = targetDir.walk().firstOrNull {
-            it.name == rawTarget && it.absolutePath.startsWith(targetDir.absolutePath)
-        }
-        if (found != null) {
-            return try {
-                linkFile.parentFile?.toPath()?.relativize(found.toPath())?.toString()
-            } catch (_: Exception) {
-                rawTarget
-            }
-        }
-        return null
     }
 
     private suspend fun collectLogs(process: Process) = withContext(Dispatchers.IO) {
