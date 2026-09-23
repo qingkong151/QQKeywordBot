@@ -271,7 +271,7 @@ class NapCatManager @Inject constructor(
 
         // 2. 准备 Ubuntu rootfs（用版本标记确保权限/符号链接正确）
         // 版本号变更时强制重新解压（更新 first-run.sh 等内置脚本）
-        val ROOTFS_VERSION = "16"
+        val ROOTFS_VERSION = "17"
         val markerFile = File(rootfsDir, ".rootfs-ok-v$ROOTFS_VERSION")
         if (!markerFile.exists()) {
             log("rootfs 版本不匹配，重新解压...")
