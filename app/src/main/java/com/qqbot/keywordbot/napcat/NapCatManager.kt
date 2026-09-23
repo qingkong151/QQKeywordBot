@@ -115,6 +115,9 @@ class NapCatManager @Inject constructor(
                     // Termux 版 proot 硬编码了 Termux 路径，需覆盖
                     put("PROOT_TMP_DIR", prootTmpDir.absolutePath)
                     put("PROOT_LOADER", prootLoader.absolutePath)
+                    // 告诉 NapCat QQ 安装位置（proot 容器内路径）
+                    put("NAPCAT_QQ_PACKAGE_INFO_PATH", "/opt/QQ/resources/app/package.json")
+                    put("NAPCAT_QQ_VERSION_CONFIG_PATH", "/root/.config/QQ/versions/config.json")
                 }
                 val process = pb.start()
                 containerProcess = process
