@@ -116,8 +116,8 @@ class NapCatManager @Inject constructor(
                     put("PROOT_TMP_DIR", prootTmpDir.absolutePath)
                     put("PROOT_LOADER", prootLoader.absolutePath)
                     // 告诉 NapCat QQ 安装位置（proot 容器内路径）
+                    // 只设 PACKAGE_INFO_PATH，让 NapCat 自己用 tQ() 兜底版本号
                     put("NAPCAT_QQ_PACKAGE_INFO_PATH", "/opt/QQ/resources/app/package.json")
-                    put("NAPCAT_QQ_VERSION_CONFIG_PATH", "/root/.config/QQ/versions/config.json")
                 }
                 val process = pb.start()
                 containerProcess = process
