@@ -1,0 +1,28 @@
+# Build
+build/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+local.properties
+.gradle/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Rootfs assets (large file)
+app/src/main/assets/ubuntu-rootfs.zip
+app/src/main/assets/symlinks.txt
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/

@@ -1,0 +1,19 @@
+{
+  "network": {
+    "websocket": {
+      "enable": true,
+      "port": 6099
+    },
+    "http": {
+      "enable": false
+    }
+  },
+  "fileLog": {
+    "enable": true,
+    "level": "info"
+  },
+  "consoleLog": {
+    "enable": true,
+    "level": "info"
+  }
+}

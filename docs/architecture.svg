@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EEF2FF"/>
+    </linearGradient>
+    <linearGradient id="uiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#DBEAFE"/>
+      <stop offset="100%" stop-color="#BFDBFE"/>
+    </linearGradient>
+    <linearGradient id="svcGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EDE9FE"/>
+      <stop offset="100%" stop-color="#DDD6FE"/>
+    </linearGradient>
+    <linearGradient id="dataGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D1FAE5"/>
+      <stop offset="100%" stop-color="#A7F3D0"/>
+    </linearGradient>
+    <linearGradient id="napGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FEE2E2"/>
+      <stop offset="100%" stop-color="#FECACA"/>
+    </linearGradient>
+    <linearGradient id="aiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FEF3C7"/>
+      <stop offset="100%" stop-color="#FDE68A"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#94A3B8" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect width="1100" height="720" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="550" y="40" text-anchor="middle" font-size="24" font-weight="bold" fill="#1E293B">QQ 关键词自动回复 App — 整体架构图</text>
+  <text x="550" y="62" text-anchor="middle" font-size="13" fill="#64748B">Android (Kotlin + Compose) · proot 容器运行 NapCatQQ · OneBot v11 协议</text>
+
+  <!-- ==================== UI Layer ==================== -->
+  <rect x="30" y="90" width="1040" height="100" rx="14" fill="url(#uiGrad)" stroke="#3B82F6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="50" y="112" font-size="14" font-weight="bold" fill="#1E40AF">UI 层 (Jetpack Compose + Navigation)</text>
+  <g font-size="12" fill="#1E293B">
+    <rect x="55" y="125" width="140" height="50" rx="8" fill="#fff" stroke="#93C5FD"/>
+    <text x="125" y="148" text-anchor="middle" font-weight="600">首页</text>
+    <text x="125" y="165" text-anchor="middle" font-size="10" fill="#64748B">NapCat 状态/日志</text>
+
+    <rect x="210" y="125" width="140" height="50" rx="8" fill="#fff" stroke="#93C5FD"/>
+    <text x="280" y="148" text-anchor="middle" font-weight="600">关键词管理</text>
+    <text x="280" y="165" text-anchor="middle" font-size="10" fill="#64748B">规则 CRUD</text>
+
+    <rect x="365" y="125" width="140" height="50" rx="8" fill="#fff" stroke="#93C5FD"/>
+    <text x="435" y="148" text-anchor="middle" font-weight="600">人设管理</text>
+    <text x="435" y="165" text-anchor="middle" font-size="10" fill="#64748B">Persona CRUD</text>
+
+    <rect x="520" y="125" width="140" height="50" rx="8" fill="#fff" stroke="#93C5FD"/>
+    <text x="590" y="148" text-anchor="middle" font-weight="600">日志查看</text>
+    <text x="590" y="165" text-anchor="middle" font-size="10" fill="#64748B">触发记录</text>
+
+    <rect x="675" y="125" width="180" height="50" rx="8" fill="#fff" stroke="#93C5FD"/>
+    <text x="765" y="148" text-anchor="middle" font-weight="600">Bottom Navigation</text>
+    <text x="765" y="165" text-anchor="middle" font-size="10" fill="#64748B">4 个 Tab 切换</text>
+  </g>
+
+  <!-- arrow UI -> Service -->
+  <path d="M 550 190 L 550 215" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- ==================== Service Layer ==================== -->
+  <rect x="30" y="215" width="1040" height="150" rx="14" fill="url(#svcGrad)" stroke="#7C3AED" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="50" y="237" font-size="14" font-weight="bold" fill="#6D28D9">Service 层 (Bot Core)</text>
+
+  <g font-size="12" fill="#1E293B">
+    <!-- BotService -->
+    <rect x="55" y="250" width="200" height="100" rx="10" fill="#fff" stroke="#C4B5FD"/>
+    <text x="155" y="272" text-anchor="middle" font-weight="600">BotService</text>
+    <text x="155" y="290" text-anchor="middle" font-size="10" fill="#64748B">消息路由总编排</text>
+    <text x="155" y="305" text-anchor="middle" font-size="10" fill="#64748B">加载规则 → 匹配 → 回复</text>
+    <text x="155" y="320" text-anchor="middle" font-size="10" fill="#64748B">记录日志</text>
+
+    <!-- KeywordMatcher -->
+    <rect x="270" y="250" width="170" height="100" rx="10" fill="#fff" stroke="#C4B5FD"/>
+    <text x="355" y="272" text-anchor="middle" font-weight="600">KeywordMatcher</text>
+    <text x="355" y="290" text-anchor="middle" font-size="10" fill="#64748B">exact / contains</text>
+    <text x="355" y="305" text-anchor="middle" font-size="10" fill="#64748B">regex 匹配</text>
+
+    <!-- ReplyBuilder -->
+    <rect x="455" y="250" width="170" height="100" rx="10" fill="#fff" stroke="#C4B5FD"/>
+    <text x="540" y="272" text-anchor="middle" font-weight="600">ReplyBuilder</text>
+    <text x="540" y="290" text-anchor="middle" font-size="10" fill="#64748B">@提问者 + 文本</text>
+    <text x="540" y="305" text-anchor="middle" font-size="10" fill="#64748B">+ 图片 / AI 文本</text>
+
+    <!-- AiProvider -->
+    <rect x="640" y="250" width="170" height="100" rx="10" fill="url(#aiGrad)" stroke="#F59E0B"/>
+    <text x="725" y="272" text-anchor="middle" font-weight="600">AiProvider</text>
+    <text x="725" y="290" text-anchor="middle" font-size="10" fill="#64748B">接口 (无状态)</text>
+    <text x="725" y="305" text-anchor="middle" font-size="10" fill="#64748B">OpenAiProvider 实现</text>
+    <text x="725" y="320" text-anchor="middle" font-size="10" fill="#64748B">仅接收 systemPrompt</text>
+  </g>
+
+  <!-- Service -> Data arrow -->
+  <path d="M 155 365 L 155 385" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <!-- Service -> NapCat arrow (right side) -->
+  <path d="M 880 330 C 960 330, 960 470, 880 470" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="920" y="405" text-anchor="middle" font-size="10" fill="#64748B" transform="rotate(90 920 405)">OneBot WS</text>
+
+  <!-- ==================== Data Layer ==================== -->
+  <rect x="30" y="385" width="720" height="130" rx="14" fill="url(#dataGrad)" stroke="#059669" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="50" y="407" font-size="14" font-weight="bold" fill="#065F46">数据层 (Room / SQLite)</text>
+
+  <g font-size="11" fill="#1E293B">
+    <rect x="55" y="420" width="150" height="80" rx="8" fill="#fff" stroke="#6EE7B7"/>
+    <text x="130" y="442" text-anchor="middle" font-weight="600">app_user</text>
+    <text x="130" y="458" text-anchor="middle" font-size="10" fill="#64748B">id, name</text>
+    <text x="130" y="473" text-anchor="middle" font-size="10" fill="#64748B">createdAt</text>
+    <text x="130" y="490" text-anchor="middle" font-size="9" fill="#059669">🔓 公开表</text>
+
+    <rect x="220" y="420" width="160" height="80" rx="8" fill="#fff" stroke="#6EE7B7"/>
+    <text x="300" y="442" text-anchor="middle" font-weight="600">persona</text>
+    <text x="300" y="458" text-anchor="middle" font-size="10" fill="#64748B">id, ownerUserId</text>
+    <text x="300" y="473" text-anchor="middle" font-size="10" fill="#64748B">name, systemPrompt</text>
+    <text x="300" y="490" text-anchor="middle" font-size="9" fill="#DC2626">🔒 按 ownerUserId 隔离</text>
+
+    <rect x="395" y="420" width="170" height="80" rx="8" fill="#fff" stroke="#6EE7B7"/>
+    <text x="480" y="442" text-anchor="middle" font-weight="600">keyword_reply</text>
+    <text x="480" y="458" text-anchor="middle" font-size="10" fill="#64748B">id, ownerUserId</text>
+    <text x="480" y="473" text-anchor="middle" font-size="10" fill="#64748B">keyword, matchType</text>
+    <text x="480" y="490" text-anchor="middle" font-size="9" fill="#DC2626">🔒 按 ownerUserId 隔离</text>
+
+    <rect x="580" y="420" width="150" height="80" rx="8" fill="#fff" stroke="#6EE7B7"/>
+    <text x="655" y="442" text-anchor="middle" font-weight="600">query_log</text>
+    <text x="655" y="458" text-anchor="middle" font-size="10" fill="#64748B">id, ts, userId</text>
+    <text x="655" y="473" text-anchor="middle" font-size="10" fill="#64748B">question, matchedId</text>
+    <text x="655" y="490" text-anchor="middle" font-size="9" fill="#059669">🔓 日志表</text>
+  </g>
+
+  <!-- ==================== NapCat Container Layer ==================== -->
+  <rect x="770" y="385" width="300" height="180" rx="14" fill="url(#napGrad)" stroke="#DC2626" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="790" y="407" font-size="14" font-weight="bold" fill="#991B1B">NapCat 容器层 (proot)</text>
+
+  <rect x="790" y="420" width="260" height="130" rx="10" fill="#fff" stroke="#FCA5A5" stroke-dasharray="4 2"/>
+  <text x="920" y="440" text-anchor="middle" font-size="11" font-weight="600" fill="#7F1D1D">proot Ubuntu 容器 (免 Root)</text>
+
+  <rect x="805" y="450" width="230" height="42" rx="6" fill="#FEF2F2" stroke="#FCA5A5"/>
+  <text x="920" y="470" text-anchor="middle" font-size="12" font-weight="600">NapCatQQ (Node.js)</text>
+  <text x="920" y="485" text-anchor="middle" font-size="9" fill="#64748B">QQ 协议桥 / 扫码登录</text>
+
+  <rect x="805" y="500" width="230" height="42" rx="6" fill="#FEF2F2" stroke="#FCA5A5"/>
+  <text x="920" y="520" text-anchor="middle" font-size="12" font-weight="600">OneBot V11 API</text>
+  <text x="920" y="535" text-anchor="middle" font-size="9" fill="#64748B">ws://127.0.0.1:3001</text>
+
+  <!-- NapCat <-> QQ -->
+  <path d="M 920 565 L 920 595" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="920" y="585" text-anchor="middle" font-size="10" fill="#64748B">QQ 协议</text>
+
+  <!-- ==================== QQ Client ==================== -->
+  <rect x="770" y="595" width="300" height="60" rx="14" fill="#E0F2FE" stroke="#0284C7" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="920" y="620" text-anchor="middle" font-size="13" font-weight="bold" fill="#075985">QQ 客户端</text>
+  <text x="920" y="640" text-anchor="middle" font-size="11" fill="#64748B">用户扫码登录 · 收发消息</text>
+
+  <!-- ==================== NapCatManager (left side, bridge) ==================== -->
+  <rect x="30" y="540" width="240" height="115" rx="12" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="50" y="562" font-size="13" font-weight="bold" fill="#9A3412">容器管理</text>
+  <rect x="50" y="572" width="200" height="36" rx="6" fill="#fff" stroke="#FDBA74"/>
+  <text x="150" y="590" text-anchor="middle" font-size="11" font-weight="600">NapCatManager</text>
+  <text x="150" y="603" text-anchor="middle" font-size="9" fill="#64748B">proot 启动/停止 + 日志</text>
+  <rect x="50" y="614" width="200" height="36" rx="6" fill="#fff" stroke="#FDBA74"/>
+  <text x="150" y="632" text-anchor="middle" font-size="11" font-weight="600">OneBotClient</text>
+  <text x="150" y="645" text-anchor="middle" font-size="9" fill="#64748B">WebSocket 收发消息</text>
+
+  <!-- arrows: NapCatManager -> NapCat container -->
+  <path d="M 270 597 C 400 597, 600 597, 790 475" stroke="#EA580C" stroke-width="1.5" fill="none" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+
+  <!-- ==================== Hilt DI ==================== -->
+  <rect x="290" y="540" width="460" height="115" rx="12" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="310" y="562" font-size="13" font-weight="bold" fill="#115E59">依赖注入 (Hilt)</text>
+  <g font-size="11" fill="#1E293B">
+    <rect x="310" y="572" width="130" height="36" rx="6" fill="#fff" stroke="#5EEAD4"/>
+    <text x="375" y="590" text-anchor="middle" font-weight="600">AppModule</text>
+    <text x="375" y="603" text-anchor="middle" font-size="9" fill="#64748B">Database / DAO / OkHttp</text>
+
+    <rect x="455" y="572" width="130" height="36" rx="6" fill="#fff" stroke="#5EEAD4"/>
+    <text x="520" y="590" text-anchor="middle" font-weight="600">@Singleton</text>
+    <text x="520" y="603" text-anchor="middle" font-size="9" fill="#64748B">BotService / NapCatMgr</text>
+
+    <rect x="600" y="572" width="130" height="36" rx="6" fill="#fff" stroke="#5EEAD4"/>
+    <text x="665" y="590" text-anchor="middle" font-weight="600">AiProvider 绑定</text>
+    <text x="665" y="603" text-anchor="middle" font-size="9" fill="#64748B">→ OpenAiProvider</text>
+  </g>
+  <text x="520" y="635" text-anchor="middle" font-size="10" fill="#0F766E">所有组件通过 Hilt 注入，解耦便于替换 AI 实现 / 数据源</text>
+
+  <!-- Legend -->
+  <g transform="translate(30, 675)">
+    <rect x="0" y="0" width="14" height="14" rx="3" fill="#DC2626"/>
+    <text x="20" y="12" font-size="10" fill="#475569">🔒 私有数据（按 ownerUserId 隔离）</text>
+    <rect x="240" y="0" width="14" height="14" rx="3" fill="#059669"/>
+    <text x="260" y="12" font-size="10" fill="#475569">公开数据</text>
+    <rect x="340" y="0" width="14" height="14" rx="3" fill="#F59E0B"/>
+    <text x="360" y="12" font-size="10" fill="#475569">AI 层（无状态，不接触 ownerUserId）</text>
+  </g>
+</svg>

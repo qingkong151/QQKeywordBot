@@ -1,0 +1,22 @@
+{
+  "network": {
+    "websocket": {
+      "enable": true,
+      "port": 3001
+    },
+    "http": {
+      "enable": false,
+      "port": 3000
+    },
+    "httpPost": {
+      "enable": false
+    },
+    "websocketReverse": {
+      "enable": false
+    }
+  },
+  "token": "",
+  "debug": false,
+  "heartInterval": 30000,
+  "postMessageFormat": "string"
+}
