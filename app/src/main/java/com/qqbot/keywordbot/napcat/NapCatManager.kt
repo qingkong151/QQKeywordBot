@@ -116,8 +116,9 @@ class NapCatManager @Inject constructor(
                     put("PROOT_TMP_DIR", prootTmpDir.absolutePath)
                     put("PROOT_LOADER", prootLoader.absolutePath)
                     // 告诉 NapCat QQ 安装位置（proot 容器内路径）
-                    // 只设 PACKAGE_INFO_PATH，让 NapCat 自己用 tQ() 兜底版本号
+                    // QQ 3.2.20 结构：/opt/QQ/resources/app/{package.json,wrapper.node,major.node}
                     put("NAPCAT_QQ_PACKAGE_INFO_PATH", "/opt/QQ/resources/app/package.json")
+                    put("NAPCAT_WRAPPER_PATH", "/opt/QQ/resources/app/wrapper.node")
                 }
                 val process = pb.start()
                 containerProcess = process
@@ -216,6 +217,8 @@ class NapCatManager @Inject constructor(
             append("rm -f /opt/napcat/.setup-done; ")
             append("bash /opt/napcat/first-run.sh; ")
             append("else ")
+            // 确保符号链接存在（升级 APK 后可能跳过 first-run.sh）
+            append("mkdir -p /usr/local/bin && ln -sfn /opt/QQ/resources/app /usr/local/bin/resources/app; ")
             append("cd /opt/napcat && ")
             append("GNUTLS=\$(find /usr/lib -name libgnutls.so.30 2>/dev/null | head -1) && ")
             append("[ -n \"\$GNUTLS\" ] && export LD_PRELOAD=\$GNUTLS; ")
@@ -268,7 +271,7 @@ class NapCatManager @Inject constructor(
 
         // 2. 准备 Ubuntu rootfs（用版本标记确保权限/符号链接正确）
         // 版本号变更时强制重新解压（更新 first-run.sh 等内置脚本）
-        val ROOTFS_VERSION = "8"
+        val ROOTFS_VERSION = "9"
         val markerFile = File(rootfsDir, ".rootfs-ok-v$ROOTFS_VERSION")
         if (!markerFile.exists()) {
             log("rootfs 版本不匹配，重新解压...")
