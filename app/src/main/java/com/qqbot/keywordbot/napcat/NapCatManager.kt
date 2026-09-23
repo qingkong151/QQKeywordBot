@@ -271,7 +271,7 @@ class NapCatManager @Inject constructor(
 
         // 2. 准备 Ubuntu rootfs（用版本标记确保权限/符号链接正确）
         // 版本号变更时强制重新解压（更新 first-run.sh 等内置脚本）
-        val ROOTFS_VERSION = "12"
+        val ROOTFS_VERSION = "13"
         val markerFile = File(rootfsDir, ".rootfs-ok-v$ROOTFS_VERSION")
         if (!markerFile.exists()) {
             log("rootfs 版本不匹配，重新解压...")
@@ -404,10 +404,9 @@ class NapCatManager @Inject constructor(
     }
 
     /**
-     * 解压 zip 条目，设置可执行权限（rootfs 依赖 /bin/bash 等可执行文件）。
-     * 处理符号链接：ZipInputStream 不能识别符号链接，
-     * dpkg-deb -x 把链接目标路径（如 "libX11.so.6.4.0"）存入 zip，
-     * 解压后用 file.length() 判断——如果很小且内容是已存在的文件名，则创建符号链接。
+     * 解压 zip 条目，设置可执行权限。
+     * 用 entry.size 判断符号链接（zip 里符号链接 size 就是目标路径长度，通常 < 128）。
+     * 大文件用流式 copy，避免 readBytes() 导致 OOM（Android heap 只有 256MB）。
      */
     private fun extractZipEntries(zip: ZipInputStream, targetDir: File) {
         var entry = zip.nextEntry
@@ -423,34 +422,31 @@ class NapCatManager @Inject constructor(
                 outFile.mkdirs()
             } else {
                 outFile.parentFile?.mkdirs()
-                // 全部读入，检测是否为符号链接
-                val bytes = zip.readBytes()
-                val contentStr = String(bytes).trim()
-                // 判断条件：内容很短 + 不含换行 + 目标路径存在于同一目录
-                val isSymlinkCandidate = bytes.size in 1..128
-                    && !contentStr.contains('\n')
-                    && !contentStr.contains('\u0000')
-                    && contentStr.isNotEmpty()
+                val entrySize = entry.size
+                val isSymlinkCandidate = entrySize in 1..128
                 if (isSymlinkCandidate) {
-                    // 尝试在同一目录找目标文件
-                    val sibling = File(outFile.parentFile, contentStr)
+                    val smallBuf = ByteArray(128)
+                    var totalRead = 0
+                    while (totalRead < smallBuf.size) {
+                        val r = zip.read(smallBuf, totalRead, smallBuf.size - totalRead)
+                        if (r <= 0) break
+                        totalRead += r
+                    }
+                    val contentStr = String(smallBuf, 0, totalRead).trim()
                     val resolved = resolveSymlinkTarget(outFile, contentStr, targetDir)
                     if (resolved != null) {
-                        // 删掉错误的普通文件，创建真正的符号链接
-                        outFile.delete()
                         try {
                             android.system.Os.symlink(resolved, outFile.absolutePath)
                             zip.closeEntry()
                             entry = zip.nextEntry
                             continue
-                        } catch (_: Exception) {
-                            // 回退：当普通文件处理
-                        }
+                        } catch (_: Exception) { /* fallback */ }
                     }
-                }
-                // 普通文件 fallback
-                FileOutputStream(outFile).use { output ->
-                    output.write(bytes)
+                    FileOutputStream(outFile).use { it.write(smallBuf, 0, totalRead) }
+                } else {
+                    FileOutputStream(outFile).use { output ->
+                        zip.copyTo(output)
+                    }
                 }
                 outFile.setExecutable(true, false)
                 outFile.setReadable(true, false)
@@ -463,23 +459,18 @@ class NapCatManager @Inject constructor(
 
     /**
      * 解析符号链接的目标路径。
-     * 优先原路径（相对/绝对都查），找不到则在 targetDir 里查实际目标文件位置。
      */
     private fun resolveSymlinkTarget(linkFile: File, rawTarget: String, targetDir: File): String? {
-        // 1. 绝对路径直接返回
         if (rawTarget.startsWith("/")) {
             val abs = File(rawTarget)
             if (abs.exists()) return rawTarget
         }
-        // 2. 相对路径在同目录查
         val sibling = File(linkFile.parentFile, rawTarget)
         if (sibling.exists()) return rawTarget
-        // 3. 在 targetDir 下全局搜索（绝对定位）
         val found = targetDir.walk().firstOrNull {
             it.name == rawTarget && it.absolutePath.startsWith(targetDir.absolutePath)
         }
         if (found != null) {
-            // 返回相对于原位置的相对路径
             return try {
                 linkFile.parentFile?.toPath()?.relativize(found.toPath())?.toString()
             } catch (_: Exception) {
@@ -495,17 +486,14 @@ class NapCatManager @Inject constructor(
         while (reader.readLine().also { line = it } != null) {
             line?.let {
                 log(it)
-                // 解析二维码 URL（NapCat 日志中通常包含 qrcode 或 qr 字样的 URL）
                 parseQrCode(it)
             }
         }
     }
 
     private fun parseQrCode(line: String) {
-        // NapCat 登录二维码通常以 URL 形式输出，如 https://...qrcode...
         val urlRegex = Regex("https?://[^\\s]+qrcode[^\\s]*", RegexOption.IGNORE_CASE)
         val qrTokenRegex = Regex("qrcode.*?(https?://[^\\s]+)", RegexOption.IGNORE_CASE)
-
         urlRegex.find(line)?.let {
             _qrCodeUrl.value = it.value
             log("检测到登录二维码: ${it.value}")
