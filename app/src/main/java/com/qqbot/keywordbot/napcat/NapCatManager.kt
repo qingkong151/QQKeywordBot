@@ -271,7 +271,7 @@ class NapCatManager @Inject constructor(
 
         // 2. 准备 Ubuntu rootfs（用版本标记确保权限/符号链接正确）
         // 版本号变更时强制重新解压（更新 first-run.sh 等内置脚本）
-        val ROOTFS_VERSION = "11"
+        val ROOTFS_VERSION = "12"
         val markerFile = File(rootfsDir, ".rootfs-ok-v$ROOTFS_VERSION")
         if (!markerFile.exists()) {
             log("rootfs 版本不匹配，重新解压...")
@@ -290,7 +290,7 @@ class NapCatManager @Inject constructor(
         }
 
         // 2.5 创建根目录符号链接（Ubuntu 24.04 的 /bin, /lib, /sbin, /lib64 都是符号链接）
-        createRootSymlinks()
+        // createRootSymlinks()  // 已由 extractZipEntries 自动处理
 
         // 3. 确保 NapCat 目录存在
         if (!napcatDir.exists()) {
