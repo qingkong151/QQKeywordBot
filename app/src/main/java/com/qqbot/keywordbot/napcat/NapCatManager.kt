@@ -150,17 +150,16 @@ class NapCatManager @Inject constructor(
     }
 
     /**
-     * 将 assets 中的 setup-napcat.sh 导出到外部存储，
-     * 方便用户在 Termux 中执行环境初始化。
+     * 将 first-run.sh 导出到外部存储，方便用户查看或手动执行。
      */
     fun exportSetupScript(): String? {
         return runCatching {
-            val target = File(externalResDir, "setup-napcat.sh")
-            context.assets.open("setup-napcat.sh").use { input ->
+            val target = File(externalResDir, "first-run.sh")
+            context.assets.open("first-run.sh").use { input ->
                 FileOutputStream(target).use { output -> input.copyTo(output) }
             }
             target.setExecutable(true)
-            log("setup 脚本已导出到: ${target.absolutePath}")
+            log("脚本已导出到: ${target.absolutePath}")
             target.absolutePath
         }.getOrNull()
     }
@@ -208,24 +207,18 @@ class NapCatManager @Inject constructor(
     // ---------- 内部 ----------
 
     private fun buildStartCommand(qqAccount: String?): List<String> {
-        // 首次运行脚本会：修复 dpkg → apt 装库 → 下载 QQ → 启动 NapCat
-        // 已初始化则直接启动 NapCat
-        // .setup-done 由 first-run.sh 内部在 QQ 安装成功后才创建，
-        // 这里不再额外 touch，避免首次失败后跳过重试。
+        // 容器方案：首次运行 first-run.sh（apt install + 下载 QQ/NapCat），
+        // 之后直接启动 NapCat。first-run.sh 成功后创建 .setup-done。
         val innerScript = buildString {
-            append("if [ ! -f /opt/napcat/.setup-done ] || [ ! -f /opt/QQ/resources/app/package.json ]; then ")
-            append("rm -f /opt/napcat/.setup-done; ")
-            append("bash /opt/napcat/first-run.sh; ")
-            append("else ")
-            // 确保符号链接存在（升级 APK 后可能跳过 first-run.sh）
-            append("mkdir -p /usr/local/bin && ln -sfn /opt/QQ/resources/app /usr/local/bin/resources/app; ")
+            append("if [ ! -f /opt/napcat/.setup-done ]; then ")
+            append("bash /opt/napcat/first-run.sh || { echo 'Setup failed'; exit 1; }; ")
+            append("fi; ")
             append("cd /opt/napcat && ")
             append("GNUTLS=\$(find /usr/lib -name libgnutls.so.30 2>/dev/null | head -1) && ")
             append("[ -n \"\$GNUTLS\" ] && export LD_PRELOAD=\$GNUTLS; ")
             append("node napcat.mjs")
             if (!qqAccount.isNullOrBlank()) append(" -q $qqAccount")
-            append(" webui; ")
-            append("fi")
+            append(" webui")
         }
         // 绑定可写目录到 /tmp 和 /var/tmp，解决 proot 下 apt-key/mktemp 无法创建临时文件的问题
         val tmpDir = File(context.filesDir, "tmp").apply { mkdirs() }
@@ -259,70 +252,88 @@ class NapCatManager @Inject constructor(
     }
 
     /**
-     * 确保运行环境就绪：proot 二进制 + Ubuntu rootfs + NapCat。
-     * 优先从外部存储目录 /storage/emulated/0/QQKeywordBot/ 加载，
-     * 其次从 assets 解压。
+     * 确保运行环境就绪：proot 二进制 + 干净 Ubuntu rootfs + 首次初始化脚本。
+     *
+     * 容器方案：rootfs 只包含干净的 ubuntu-base（31MB），
+     * 所有依赖（QQ 运行库、QQ 本体、NapCat）由 first-run.sh 在容器内
+     * 通过 apt-get install + curl 下载自动安装。
      */
     private suspend fun ensureEnvironment() = withContext(Dispatchers.IO) {
         log("资源目录: ${externalResDir.absolutePath}")
-
-        // 1. proot 二进制已通过 jniLibs 打包，自动解压到 nativeLibraryDir（可执行）
         log("proot 路径: ${prootBin.absolutePath}")
 
-        // 2. 准备 Ubuntu rootfs（用版本标记确保权限/符号链接正确）
-        // 版本号变更时强制重新解压（更新 first-run.sh 等内置脚本）
-        val ROOTFS_VERSION = "17"
+        val ROOTFS_VERSION = "20"
         val markerFile = File(rootfsDir, ".rootfs-ok-v$ROOTFS_VERSION")
         if (!markerFile.exists()) {
             log("rootfs 版本不匹配，重新解压...")
-            // 清理旧的不完整解压
             rootfsDir.deleteRecursively()
             rootfsDir.mkdirs()
             val externalRootfs = File(externalResDir, "ubuntu-rootfs.zip")
             if (externalRootfs.exists()) {
-                log("从外部存储解压 Ubuntu rootfs（首次启动较慢，请耐心等待）...")
+                log("从外部存储解压 Ubuntu rootfs...")
                 extractZip(externalRootfs, rootfsDir)
             } else {
-                log("从 assets 解压 Ubuntu rootfs（首次启动较慢，请耐心等待）...")
+                log("从 assets 解压 Ubuntu rootfs（~31MB）...")
                 extractAssetZip("ubuntu-rootfs.zip", rootfsDir)
             }
             markerFile.createNewFile()
         }
 
-        // 2.5 创建根目录符号链接（Ubuntu 24.04 的 /bin, /lib, /sbin, /lib64 都是符号链接）
-        createRootSymlinks()
-
-        // 3. 确保 NapCat 目录存在
-        if (!napcatDir.exists()) {
-            napcatDir.mkdirs()
+        // 部署 first-run.sh 和 NapCat.Shell.zip 到容器内 /opt/napcat/
+        val napcatOptDir = File(rootfsDir, "opt/napcat").apply { mkdirs() }
+        val firstRunScript = File(napcatOptDir, "first-run.sh")
+        if (!firstRunScript.exists()) {
+            runCatching {
+                context.assets.open("first-run.sh").use { input ->
+                    FileOutputStream(firstRunScript).use { output -> input.copyTo(output) }
+                }
+                firstRunScript.setExecutable(true, false)
+                log("已部署 first-run.sh")
+            }.onFailure { log("部署 first-run.sh 失败: ${it.message}") }
+        }
+        val napcatZip = File(napcatOptDir, "NapCat.Shell.zip")
+        if (!napcatZip.exists()) {
+            runCatching {
+                context.assets.open("NapCat.Shell.zip").use { input ->
+                    FileOutputStream(napcatZip).use { output -> input.copyTo(output) }
+                }
+                log("已部署 NapCat.Shell.zip")
+            }.onFailure { log("部署 NapCat.Shell.zip 失败: ${it.message}") }
         }
 
-        // 4. 部署 OneBot v11 配置文件（正向 WS 端口 3001，与 OneBotClient 默认一致）
-        deployNapcatConfig()
+        // 修复 Java 解压后丢失的根级符号链接（lib, bin, sbin -> usr/...）
+        // proot 的 bind mount 会覆盖这些路径，但部分设备上 bind mount 可能
+        // 因目标不是目录而失败，所以这里也创建符号链接作为兜底。
+        ensureRootSymlinks()
 
         log("环境就绪，rootfs: ${rootfsDir.absolutePath}")
     }
 
     /**
-     * 将 assets 中的 OneBot 配置文件部署到 napcat-data/config/。
-     * napcat-data 目录通过 proot -b 绑定到容器内的 /opt/napcat/data。
+     * 确保根级符号链接存在（/lib, /bin, /sbin -> usr/lib, usr/bin, usr/sbin）。
+     * Java ZipInputStream 不保留 zip 里的符号链接属性，解压后这些路径
+     * 变成包含目标路径文本的普通文件。删除后重建符号链接。
      */
-    private fun deployNapcatConfig() {
-        val configDir = File(context.filesDir, "napcat-data/config").apply { mkdirs() }
-        val configFiles = listOf("onebot11.json", "napcat.json")
-        for (name in configFiles) {
-            val target = File(configDir, name)
-            if (!target.exists()) {
+    private fun ensureRootSymlinks() {
+        val links = mapOf(
+            "lib" to "usr/lib",
+            "bin" to "usr/bin",
+            "sbin" to "usr/sbin"
+        )
+        for ((link, target) in links) {
+            val linkFile = File(rootfsDir, link)
+            // 如果不是符号链接（是普通文件或不存在但应该是符号链接），重建
+            if (linkFile.exists() && !java.nio.file.Files.isSymbolicLink(linkFile.toPath())) {
+                linkFile.delete()
+            }
+            if (!linkFile.exists()) {
                 runCatching {
-                    context.assets.open(name).use { input ->
-                        FileOutputStream(target).use { output -> input.copyTo(output) }
-                    }
-                    log("已部署配置: $name")
-                }.onFailure {
-                    log("部署配置 $name 失败: ${it.message}")
+                    android.system.Os.symlink(target, linkFile.absolutePath)
                 }
             }
         }
+        // 确保 /root 存在（proot -w /root）
+        File(rootfsDir, "root").mkdirs()
     }
 
     private fun extractAsset(assetName: String, target: File) {
@@ -332,57 +343,6 @@ class NapCatManager @Inject constructor(
                 input.copyTo(output)
             }
         }
-    }
-
-    /**
-     * 从 assets/symlinks.txt 读取并创建所有符号链接。
-     * 打包时未包含符号链接，需在解压后手动创建。
-     */
-    private fun createRootSymlinks() {
-        var created = 0
-        var failed = 0
-        val errors = mutableListOf<String>()
-        runCatching {
-            context.assets.open("symlinks.txt").bufferedReader().useLines { lines ->
-                for (line in lines) {
-                    val parts = line.split(" -> ", limit = 2)
-                    if (parts.size != 2) continue
-                    val (linkPath, target) = parts
-                    val linkFile = File(rootfsDir, linkPath)
-                    // 删除已存在的文件/目录（解压时符号链接被当作普通文件）
-                    if (linkFile.exists()) {
-                        linkFile.delete()
-                    }
-                    linkFile.parentFile?.mkdirs()
-                    runCatching {
-                        android.system.Os.symlink(target, linkFile.absolutePath)
-                        created++
-                    }.onFailure { e ->
-                        failed++
-                        if (errors.size < 3) {
-                            errors.add("$linkPath -> $target : ${e.message}")
-                        }
-                    }
-                }
-            }
-            log("已创建 $created 个符号链接，失败 $failed 个")
-            if (errors.isNotEmpty()) {
-                log("符号链接错误示例: ${errors.joinToString("; ")}")
-            }
-        }.onFailure {
-            log("符号链接创建失败: ${it.message}")
-        }
-
-        // 确保 /root 目录存在（proot -w /root 需要）
-        val rootHome = File(rootfsDir, "root")
-        if (!rootHome.exists()) {
-            rootHome.mkdirs()
-            log("已创建 /root 目录")
-        }
-
-        // 验证关键符号链接
-        val binLink = File(rootfsDir, "bin")
-        log("/bin 存在: ${binLink.exists()}, 是符号链接: ${binLink.canonicalPath != binLink.absolutePath}")
     }
 
     private fun extractAssetZip(assetName: String, targetDir: File) {
@@ -404,14 +364,15 @@ class NapCatManager @Inject constructor(
     }
 
     /**
-     * 解压 zip 条目，设置可执行权限。
-     * 用 entry.size 判断符号链接（zip 里符号链接 size 就是目标路径长度，通常 < 128）。
-     * 大文件用流式 copy，避免 readBytes() 导致 OOM（Android heap 只有 256MB）。
+     * 流式解压 zip，避免 readBytes() 导致 OOM。
+     * 符号链接会被当作普通文件解压（Java ZipInputStream 限制），
+     * 根级符号链接由 ensureRootSymlinks() 修复，
+     * 库级符号链接由容器内 apt-get install 重建。
      */
     private fun extractZipEntries(zip: ZipInputStream, targetDir: File) {
         var entry = zip.nextEntry
         while (entry != null) {
-            val entryName = entry.name.removePrefix("rootfs/").removePrefix("./")
+            val entryName = entry.name.removePrefix("./")
             if (entryName.isEmpty()) {
                 zip.closeEntry()
                 entry = zip.nextEntry

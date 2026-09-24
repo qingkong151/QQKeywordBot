@@ -11,9 +11,9 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# Rootfs assets (large file)
+# Rootfs assets (large files)
 app/src/main/assets/ubuntu-rootfs.zip
-app/src/main/assets/symlinks.txt
+app/src/main/assets/NapCat.Shell.zip
 
 # IDE
 .idea/
