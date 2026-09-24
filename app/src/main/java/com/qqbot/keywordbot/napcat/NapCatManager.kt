@@ -80,71 +80,91 @@ class NapCatManager @Inject constructor(
     //  对外接口（保持与之前一致）
     // ============================================================
 
-    /** 检测 root + 环境状态 */
-    fun checkEnvironment() {
-        scope.launch {
-            _hasRoot.value = runSu("id").firstOrNull()?.contains("uid=0") == true
+    /** 请求 Root 权限（触发 Magisk/KernelSU 弹窗） */
+    suspend fun requestRoot(): Boolean = withContext(Dispatchers.IO) {
+        log("请求 Root 权限...")
+        val output = runSu("id", timeoutSec = 10)
+        val ok = output.any { it.contains("uid=0") }
+        _hasRoot.value = ok
+        if (ok) {
+            log("✅ Root 权限可用")
+            // 顺便检查安装状态
             _installed.value = runSu("test -f $pidPath && echo yes || echo no")
                 .firstOrNull()?.trim() == "yes"
-            if (_hasRoot.value == true) log("✅ Root 权限可用")
-            else log("❌ 未获取 Root 权限")
+        } else {
+            log("❌ 未获取 Root 权限，请在 Magisk/KernelSU 中授权本应用")
+            log("授权后请重新点击启动按钮")
+        }
+        ok
+    }
+
+    /** 检测环境状态 */
+    fun checkEnvironment() {
+        scope.launch {
+            if (_hasRoot.value != true) return@launch
+            _installed.value = runSu("test -f $pidPath && echo yes || echo no")
+                .firstOrNull()?.trim() == "yes"
         }
     }
 
-    /** 安装 NapCat（需要 root）。首次会自动下载 ubuntu-base + apt install + 下载 QQ/NapCat */
-    fun install() {
+    /** 安装 NapCat（suspend，会阻塞到安装完成或失败） */
+    suspend fun install() = withContext(Dispatchers.IO) {
         if (_hasRoot.value != true) {
-            log("❌ 请先授予 Root 权限（Magisk/KernelSU 弹窗点击允许）")
-            return
+            if (!requestRoot()) {
+                _state.value = NapCatState.ERROR
+                return@withContext
+            }
         }
         _state.value = NapCatState.STARTING
-        scope.launch {
-            // 1. 部署安装脚本
-            deployInstallScript()
 
-            // 2. 如果用户上传了 QQ.deb，复制过去给脚本用
-            runCatching {
-                if (qqDebFile.exists() && qqDebFile.length() > 1_000_000) {
-                    val out = runSu("cp ${qqDebFile.absolutePath} $installDir/QQ.deb")
-                    log("已复制 QQ.deb 到安装目录")
-                }
+        // 1. 部署安装脚本
+        deployInstallScript()
+
+        // 2. 如果用户上传了 QQ.deb，复制过去给脚本用
+        runCatching {
+            if (qqDebFile.exists() && qqDebFile.length() > 1_000_000) {
+                runSu("cp ${qqDebFile.absolutePath} $installDir/QQ.deb")
+                log("已复制 QQ.deb 到安装目录")
             }
+        }
 
-            // 3. 执行安装
-            log("开始安装（首次需要下载 ubuntu-base + apt install 依赖，大约 5-10 分钟）...")
-            runSu("bash $scriptPath install", streaming = true)
+        // 3. 执行安装
+        log("开始安装（首次需要下载 ubuntu-base + apt install 依赖，大约 5-10 分钟）...")
+        runSu("bash $scriptPath install", streaming = true)
 
-            val ok = runSu("test -f $pidPath && echo yes || echo no").firstOrNull()?.trim() == "yes"
-            if (ok) {
-                log("✅ 安装完成")
-                _installed.value = true
-                _state.value = NapCatState.STOPPED
-            } else {
-                log("❌ 安装失败，请查看日志")
-                _state.value = NapCatState.ERROR
-            }
+        val ok = runSu("test -f $pidPath && echo yes || echo no").firstOrNull()?.trim() == "yes"
+        if (ok) {
+            log("✅ 安装完成")
+            _installed.value = true
+            _state.value = NapCatState.STOPPED
+        } else {
+            log("❌ 安装失败，请查看日志")
+            _state.value = NapCatState.ERROR
         }
     }
 
     /** 启动 NapCat（首次自动执行 install） */
     fun start(qqAccount: String? = null) {
         if (_state.value == NapCatState.RUNNING) return
-        if (_hasRoot.value != true) {
-            log("❌ 需要 Root 权限")
-            _state.value = NapCatState.ERROR
-            return
-        }
         _state.value = NapCatState.STARTING
 
         scope.launch {
+            // 先获取 Root（会触发 Magisk 弹窗）
+            if (_hasRoot.value != true) {
+                if (!requestRoot()) {
+                    _state.value = NapCatState.ERROR
+                    return@launch
+                }
+            }
+
             // 检查是否已安装
             val isSetupDone = runSu("test -f $pidPath && echo yes || echo no")
                 .firstOrNull()?.trim() == "yes"
 
             if (!isSetupDone) {
                 log("首次运行，自动安装...")
-                install()
-                delay(2000)
+                _installed.value = false
+                install()  // suspend，会阻塞到安装完成
                 if (_installed.value != true) {
                     log("❌ 自动安装失败")
                     _state.value = NapCatState.ERROR
