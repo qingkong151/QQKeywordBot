@@ -269,10 +269,14 @@ class NapCatManager @Inject constructor(
             rootfsDir.deleteRecursively()
             rootfsDir.mkdirs()
             val externalRootfs = File(externalResDir, "ubuntu-rootfs.zip")
-            if (externalRootfs.exists()) {
-                log("从外部存储解压 Ubuntu rootfs...")
-                extractZip(externalRootfs, rootfsDir)
-            } else {
+            val extracted = runCatching {
+                if (externalRootfs.exists()) {
+                    log("尝试从外部存储解压 Ubuntu rootfs...")
+                    extractZip(externalRootfs, rootfsDir)
+                    true
+                } else { false }
+            }.getOrDefault(false)
+            if (!extracted) {
                 log("从 assets 解压 Ubuntu rootfs（~31MB）...")
                 extractAssetZip("ubuntu-rootfs.zip", rootfsDir)
             }
